@@ -1,6 +1,6 @@
 # Karapace demo
 
-A demo application using Karapace schema registry with golang Kafka client.
+A demo application using the Aiven [Karapace](https://karapace.io/) schema registry with golang Kafka client.
 
 ## Usage
 
