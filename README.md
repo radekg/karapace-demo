@@ -25,7 +25,7 @@ go run . --mode=produce
 In yet another terminal, start the consumer:
 
 ```sh
-go run . --mode=consumer
+go run . --mode=consume
 ```
 
 ## Configuration
@@ -51,7 +51,7 @@ In the `consume` mode, consumes messages as fast as possible from the topic. Eac
 Assuming default settings:
 
 ```sh
-curl --silent -X GET http://localhost:8081/subjects | jq '.'
+curl --silent http://localhost:8081/subjects | jq '.'
 ```
 
 ```json
@@ -64,7 +64,7 @@ curl --silent -X GET http://localhost:8081/subjects | jq '.'
 Get versions of a subject:
 
 ```sh
-curl --silent -X GET http://localhost:8081/subjects/karapace-demo-topic-value/versions | jq '.'
+curl --silent http://localhost:8081/subjects/karapace-demo-topic-value/versions | jq '.'
 ```
 
 ```json
@@ -76,7 +76,7 @@ curl --silent -X GET http://localhost:8081/subjects/karapace-demo-topic-value/ve
 Get specific subject version:
 
 ```sh
-curl --silent -X GET http://localhost:8081/subjects/karapace-demo-topic-value/versions/1 | jq '.'
+curl --silent http://localhost:8081/subjects/karapace-demo-topic-value/versions/1 | jq '.'
 ```
 
 ```json
@@ -91,7 +91,7 @@ curl --silent -X GET http://localhost:8081/subjects/karapace-demo-topic-value/ve
 Get schema by ID:
 
 ```sh
-curl --silent -X GET http://localhost:8081/schemas/ids/2 | jq '.'
+curl --silent http://localhost:8081/schemas/ids/2 | jq '.'
 ```
 
 ```json
