@@ -15,6 +15,19 @@ import (
 	kafkaavro "github.com/mycujoo/go-kafka-avro/v2"
 )
 
+const avroKeySchema = `"string"`
+const avroValueSchema = `{
+	"type": "record",
+	"name": "test",
+	"fields" : [
+		{
+			"name": "val",
+			"type": "int",
+			"default": 0
+		}
+	]
+}`
+
 type Val struct {
 	Val int `avro:"val"`
 }
@@ -92,8 +105,8 @@ func runProduce(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 
 	producer, err := kafkaavro.NewProducer(
 		cfg.topic,
-		`"string"`,
-		`{"type": "record", "name": "test", "fields" : [{"name": "val", "type": "int", "default": 0}]}`,
+		avroKeySchema,
+		avroValueSchema,
 		kafkaavro.WithKafkaConfig(&kafka.ConfigMap{
 			"bootstrap.servers": cfg.bootstrapServers,
 		}),

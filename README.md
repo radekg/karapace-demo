@@ -99,3 +99,9 @@ curl --silent http://localhost:8081/schemas/ids/2 | jq '.'
   "schema": "{\"name\":\"test\",\"type\":\"record\",\"fields\":[{\"name\":\"val\",\"type\":\"int\"}]}"
 }
 ```
+
+## Clean up
+
+```sh
+make clean
+```
