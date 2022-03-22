@@ -7,6 +7,7 @@ type demoConfig struct {
 	autoOffsetReset   string
 	bootstrapServers  string
 	consumerGroupId   string
+	noAutoCommit      bool
 	produceIntervalMs int64
 	schemaURL         string
 	topic             string

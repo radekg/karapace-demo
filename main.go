@@ -40,7 +40,8 @@ func main() {
 	flag.StringVar(&cfg.bootstrapServers, "bootstrap-servers", "localhost:9093", "Kafka bootstrap server comma delimited list")
 	flag.StringVar(&cfg.consumerGroupId, "consumer-group-id", fmt.Sprintf("karapace-demo-%d", time.Now().Unix()), "Kafka consumer group.id name")
 	flag.StringVar(&cfg.topic, "topic", "karapace-demo-topic", "Topic name")
-	flag.StringVar(&cfg.autoOffsetReset, "auto-offset-reset", "latest", "Kafka consumer auto.offset.reset")
+	flag.StringVar(&cfg.autoOffsetReset, "auto-offset-reset", "latest", "Kafka consumer auto.offset.reset: smallest, earliest, beginning, largest, latest, end, error. none")
+	flag.BoolVar(&cfg.noAutoCommit, "no-auto-commit", false, "If set, disables the auto-commit of the consumer offset")
 	flag.Int64Var(&cfg.produceIntervalMs, "produce-interval-ms", 1000, "Message produce interval")
 	flag.StringVar(&cfg.schemaURL, "schema-registry-url", "http://localhost:8081", "Karapace schema URL")
 	flag.BoolVar(&cfg.logAsJSON, "log-as-json", false, "log as JSON")
@@ -63,13 +64,15 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-c
-			logger.Info("shutting down...")
 			cancelFunc()
 		}()
 
-		exitCode := runProduce(ctx, logger, cfg)
+		cExitCode := make(chan int)
+		go func() {
+			cExitCode <- runProduce(ctx, logger, cfg)
+		}()
 
-		os.Exit(exitCode)
+		os.Exit(<-cExitCode)
 
 	case "consume":
 
@@ -77,7 +80,6 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-c
-			logger.Info("shutting down...")
 			cancelFunc()
 		}()
 
@@ -85,7 +87,6 @@ func main() {
 		go func() {
 			cExitCode <- runConsume(ctx, logger, cfg)
 		}()
-
 		os.Exit(<-cExitCode)
 
 	default:
@@ -118,16 +119,41 @@ func runProduce(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 		return 1
 	}
 
+	chanDelivery := make(chan kafka.Event)
+
+	go func() {
+		for {
+			select {
+			case event := <-chanDelivery:
+				switch vEvent := event.(type) {
+				case *kafka.Message:
+					logger.Info("delivery notification",
+						"key", string(vEvent.Key),
+						"headers", vEvent.Headers,
+						"partition", vEvent.TopicPartition)
+				default:
+					logger.Info("delivery notification",
+						"event", event.String(),
+						"event-type", fmt.Sprintf("%+T", event))
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 
 		select {
 		case <-ctx.Done():
-			logger.Info("Shutting down...")
+			logger.Info("shutting down producer...")
+			producer.Close()
+			logger.Info("producer stopped")
 			return 0
 		case <-time.After(time.Millisecond * time.Duration(cfg.produceIntervalMs)):
 			ts := time.Now().Unix()
 			key := fmt.Sprintf("key-%d", ts)
-			if err := producer.Produce(key, &Val{Val: (int)(ts)}, nil); err != nil {
+			if err := producer.Produce(key, &Val{Val: (int)(ts)}, chanDelivery); err != nil {
 				logger.Error("failed producing a record", err)
 			}
 			logger.Info("Produced a message", "key", key)
@@ -144,19 +170,22 @@ func runConsume(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 		return 1
 	}
 
+	kafkaCfg := &kafka.ConfigMap{
+		"bootstrap.servers":       cfg.bootstrapServers,
+		"group.id":                cfg.consumerGroupId,
+		"enable.auto.commit":      !cfg.noAutoCommit,
+		"socket.keepalive.enable": true,
+	}
+	if cfg.autoOffsetReset != "none" {
+		kafkaCfg.SetKey("auto.offset.reset", cfg.autoOffsetReset)
+	}
+
 	c, err := kafkaavro.NewConsumer(
 		[]string{cfg.topic},
 		func(topic string) interface{} {
 			return &Val{}
 		},
-		kafkaavro.WithKafkaConfig(&kafka.ConfigMap{
-			"bootstrap.servers": cfg.bootstrapServers,
-			"group.id":          cfg.consumerGroupId,
-			// avro kafka client commits automatically anyway...
-			//"enable.auto.commit":      false,
-			"socket.keepalive.enable": true,
-			"auto.offset.reset":       cfg.autoOffsetReset,
-		}),
+		kafkaavro.WithKafkaConfig(kafkaCfg),
 		kafkaavro.WithSchemaRegistryURL(schemaURL),
 		kafkaavro.WithEventHandler(func(event kafka.Event) {
 			logger.Debug("kafka event", "event", event)
@@ -171,6 +200,8 @@ func runConsume(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 		select {
 		case <-ctx.Done():
 			logger.Info("shutting down consumer...")
+			c.Close()
+			logger.Info("consumer stopped")
 			return 0
 		default:
 			// reiterate
