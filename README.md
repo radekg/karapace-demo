@@ -15,6 +15,7 @@ The cluster requires following ports available on the host:
 - `2181`, `2182`, `2183`: ZooKeeper ports
 - `9093`, `9094`, `9094`: Kafka ports
 - `8081`: Karapace schema registry port
+- `8082`: Karapace REST API port
 
 In another terminal, start the producer:
 
