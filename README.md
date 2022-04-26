@@ -84,7 +84,7 @@ curl --silent http://localhost:8081/subjects/karapace-demo-topic-value/versions/
 ```json
 {
   "id": 2,
-  "schema": "{\"name\":\"test\",\"type\":\"record\",\"fields\":[{\"name\":\"val\",\"type\":\"int\"}]}",
+  "schema": "{\"name\":\"person\",\"type\":\"record\",\"fields\":[{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"email_address\",\"type\":\"string\"},{\"name\":\"home_address\",\"type\":{\"name\":\"address\",\"type\":\"record\",\"fields\":[{\"name\":\"address1\",\"type\":\"string\"},{\"name\":\"address2\",\"type\":\"string\"},{\"name\":\"postal_code\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"}]}}]}",
   "subject": "karapace-demo-topic-value",
   "version": 1
 }
@@ -98,7 +98,7 @@ curl --silent http://localhost:8081/schemas/ids/2 | jq '.'
 
 ```json
 {
-  "schema": "{\"name\":\"test\",\"type\":\"record\",\"fields\":[{\"name\":\"val\",\"type\":\"int\"}]}"
+  "schema": "{\"name\":\"person\",\"type\":\"record\",\"fields\":[{\"name\":\"first_name\",\"type\":\"string\"},{\"name\":\"last_name\",\"type\":\"string\"},{\"name\":\"email_address\",\"type\":\"string\"},{\"name\":\"home_address\",\"type\":{\"name\":\"address\",\"type\":\"record\",\"fields\":[{\"name\":\"address1\",\"type\":\"string\"},{\"name\":\"address2\",\"type\":\"string\"},{\"name\":\"postal_code\",\"type\":\"string\"},{\"name\":\"city\",\"type\":\"string\"}]}}]}"
 }
 ```
 
@@ -169,6 +169,16 @@ curl --silent -X GET http://localhost:8082/topics/karapace-demo-topic | jq '.'
     }
   ]
 }
+```
+
+## Open Policy Agent accidental demo
+
+This program shows off how to use Open Policy Agent Rego rules. By default the consumer consumes as a `chef` user. A `chef` user should not see an email address of a person and their address details. A `chef` should only know their name and the city the person lives in.
+
+On the other hand, a HR team member should see all details of a person. To act as an HR team member start the consumer liek this:
+
+```sh
+go run . --mode=consume --consumer-role=hr
 ```
 
 ## Clean up

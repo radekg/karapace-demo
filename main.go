@@ -18,19 +18,35 @@ import (
 const avroKeySchema = `"string"`
 const avroValueSchema = `{
 	"type": "record",
-	"name": "test",
+	"name": "person",
 	"fields" : [
 		{
-			"name": "val",
-			"type": "int",
-			"default": 0
+			"name": "first_name",
+			"type": "string",
+			"default": ""
+		}, {
+			"name": "last_name",
+			"type": "string",
+			"default": ""
+		}, {
+			"name": "email_address",
+			"type": "string",
+			"default": ""
+		}, {
+			"name": "home_address",
+			"type": {
+				"type": "record",
+				"name": "address",
+				"fields": [
+					{"name": "address1", "type": "string", "default": ""},
+					{"name": "address2", "type": "string", "default": ""},
+					{"name": "postal_code", "type": "string", "default": ""},
+					{"name": "city", "type": "string", "default": ""}
+				]
+			}
 		}
 	]
 }`
-
-type Val struct {
-	Val int `avro:"val"`
-}
 
 func main() {
 
@@ -44,6 +60,7 @@ func main() {
 	flag.BoolVar(&cfg.noAutoCommit, "no-auto-commit", false, "If set, disables the auto-commit of the consumer offset")
 	flag.Int64Var(&cfg.produceIntervalMs, "produce-interval-ms", 1000, "Message produce interval")
 	flag.StringVar(&cfg.schemaURL, "schema-registry-url", "http://localhost:8081", "Karapace schema URL")
+	flag.StringVar(&cfg.consumerRole, "consumer-role", "chef", "Employee who's looking coworker's data")
 	flag.BoolVar(&cfg.logAsJSON, "log-as-json", false, "log as JSON")
 	flag.StringVar(&cfg.logLevel, "log-level", defaultLogLevel, "log level")
 
@@ -153,7 +170,16 @@ func runProduce(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 		case <-time.After(time.Millisecond * time.Duration(cfg.produceIntervalMs)):
 			ts := time.Now().Unix()
 			key := fmt.Sprintf("key-%d", ts)
-			if err := producer.Produce(key, &Val{Val: (int)(ts)}, chanDelivery); err != nil {
+			if err := producer.Produce(key, &Person{
+				FirstName:    "Radek",
+				LastName:     "Gruchalski",
+				EmailAddress: "radek@gruchalski.com",
+				HomeAddress: &Address{
+					Address1:   "The Infinite Loop 1",
+					PostalCode: "52156",
+					City:       "Monschau",
+				},
+			}, chanDelivery); err != nil {
 				logger.Error("failed producing a record", err)
 			}
 			logger.Info("Produced a message", "key", key)
@@ -183,7 +209,7 @@ func runConsume(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 	c, err := kafkaavro.NewConsumer(
 		[]string{cfg.topic},
 		func(topic string) interface{} {
-			return &Val{}
+			return &Person{}
 		},
 		kafkaavro.WithKafkaConfig(kafkaCfg),
 		kafkaavro.WithSchemaRegistryURL(schemaURL),
@@ -218,12 +244,12 @@ func runConsume(ctx context.Context, logger hclog.Logger, cfg *demoConfig) int {
 		}
 
 		switch v := msg.Value.(type) {
-		case *Val:
+		case *Person:
 			logger.Info("consumed a record",
 				"key", string(msg.Key),
 				"partition", msg.TopicPartition.Partition,
 				"offset", msg.TopicPartition.Offset,
-				"value", v)
+				"value", v.Protected(context.TODO(), cfg.consumerRole).String())
 		}
 	}
 
